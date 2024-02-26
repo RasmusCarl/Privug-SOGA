@@ -5,11 +5,13 @@ from TRUNCLexer import *
 from TRUNCParser import *
 from TRUNCListener import *
 import timing
-#import pathos.multiprocessing as mp
+import pathos.multiprocessing as mp
 
-#from rpy2.robjects.packages import importr
-#from rpy2.robjects import r
-#momtrunc = importr('MomTrunc')
+isR=None
+
+def initR():
+    global isR
+    isR=True
 
 def negate(trunc):
     """ Produces a string which is the logic negation of trunc """
@@ -62,180 +64,177 @@ class TruncRule(TRUNCListener):
         self.flag_sign = 1.
             
     def exitLexpr(self, ctx):
-                       
-        def ineq_func(comp):
-            mu = comp.gm.mu[0]
-            sigma = comp.gm.sigma[0]
-            final_pi = []
-            final_mu = []
-            final_sigma = []
-            for part in product(*[range(len(mean)) for mean in self.aux_means]):
-                # for a given combination of components of the auxiliary variables, creates a new component extending comp
-                aux_pi = 1
-                aux_mean = list(deepcopy(mu))
-                aux_sigma = []
-                ineq_coeff = deepcopy(self.coeff)
-                ineq_const = self.const
-                for p,q in zip(range(len(self.aux_means)), part):
-                    aux_pi = aux_pi*self.aux_pis[p][q]
-                    aux_mean.append(self.aux_means[p][q])
-                    aux_sigma.append(self.aux_covs[p][q])
-                aux_mean = np.array(aux_mean)
-                aux_sigma = np.diag(aux_sigma)
-                aux_cov = np.block([[sigma, np.zeros((len(sigma), len(aux_sigma)))], [np.zeros((len(aux_sigma), len(sigma))), aux_sigma]])
-                # substitute deltas
-                for i in range(len(aux_mean)):
-                    if aux_cov[i,i] < delta_tol and self.coeff[i] != 0.:
-                        ineq_const = ineq_const - self.coeff[i]*aux_mean[i]
-                        ineq_coeff[i] = 0.
-                # if all variables were deltas return
-                if np.all(np.array(ineq_coeff) == 0):
-                    if (self.type == '>' and ineq_const < 0) or (self.type == '>=' and ineq_const <= 0) or (self.type == '<' and ineq_const > 0) or (self.type == '<=' and ineq_const >= 0):
-                        new_P = 1.
+        #print(isR)
+        if isR is None or not isR:
+            def ineq_func(comp):
+               mu = comp.gm.mu[0]
+               sigma = comp.gm.sigma[0]
+               final_pi = []
+               final_mu = []
+               final_sigma = []
+               for part in product(*[range(len(mean)) for mean in self.aux_means]):
+                   # for a given combination of components of the auxiliary variables, creates a new component extending comp
+                   aux_pi = 1
+                   aux_mean = list(deepcopy(mu))
+                   aux_sigma = []
+                   ineq_coeff = deepcopy(self.coeff)
+                   ineq_const = self.const
+                   for p,q in zip(range(len(self.aux_means)), part):
+                       aux_pi = aux_pi*self.aux_pis[p][q]
+                       aux_mean.append(self.aux_means[p][q])
+                       aux_sigma.append(self.aux_covs[p][q])
+                   aux_mean = np.array(aux_mean)
+                   aux_sigma = np.diag(aux_sigma)
+                   aux_cov = np.block([[sigma, np.zeros((len(sigma), len(aux_sigma)))], [np.zeros((len(aux_sigma), len(sigma))), aux_sigma]])
+                   # substitute deltas
+                   for i in range(len(aux_mean)):
+                       if aux_cov[i,i] < delta_tol and self.coeff[i] != 0.:
+                           ineq_const = ineq_const - self.coeff[i]*aux_mean[i]
+                           ineq_coeff[i] = 0.
+                   # if all variables were deltas return
+                   if np.all(np.array(ineq_coeff) == 0):
+                       if (self.type == '>' and ineq_const < 0) or (self.type == '>=' and ineq_const <= 0) or (self.type == '<' and ineq_const > 0) or (self.type == '<=' and ineq_const >= 0):
+                           new_P = 1.
+                       else:
+                           new_P = 0.
+                       new_mu = mu
+                       new_sigma = sigma
+                   # else compute truncated distribution
+                   else:
+                       # STEP 1: change variables
+                       norm = np.linalg.norm(ineq_coeff)
+                       ineq_coeff = np.array(ineq_coeff)/norm
+                       ineq_const = ineq_const/norm
+                       A = find_basis(ineq_coeff)
+                       transl_mu = A.dot(aux_mean)
+                       transl_sigma = A.dot(aux_cov).dot(A.transpose())
+                       # STEP 2: finds the indices of the components that needs to be transformed
+                       transl_alpha = np.zeros(len(transl_mu))
+                       transl_alpha[0] = 1
+                       indices = select_indices(transl_alpha, transl_sigma)
+                       # STEP 3: creates reduced vectors taking into account only the coordinates that need to be transformed
+                       red_transl_alpha = reduce_indices(transl_alpha, indices)
+                       red_transl_mu = reduce_indices(transl_mu, indices)
+                       red_transl_sigma = reduce_indices(transl_sigma, indices) 
+                       # STEP 4: creates the hyper-rectangle to integrate on
+                       a = np.ones(len(red_transl_alpha))*(-np.inf)
+                       b = np.ones(len(red_transl_alpha))*(np.inf)
+                       if self.type=='>' or self.type=='>=':
+                           a[0] = ineq_const
+                       if self.type=='<' or self.type=='<=':
+                           b[0] = ineq_const   
+                       # STEP 5: compute moments in the transformed coordinates
+                       new_P, new_red_transl_mu, new_red_transl_sigma = compute_moments(red_transl_mu, red_transl_sigma, a, b)
+                       # STEP 6: recreates extended vectors
+                       new_transl_mu = extend_indices(new_red_transl_mu, transl_mu, indices)
+                       new_transl_sigma = extend_indices(new_red_transl_sigma, transl_sigma, indices)
+                       # STEP 7: goes back to older coordinates
+                       d = len(comp.var_list)
+                       A_inv = np.linalg.inv(A)
+                       new_mu = A_inv.dot(new_transl_mu)[:d]
+                       new_sigma = A_inv.dot(new_transl_sigma).dot(A_inv.transpose())[:d,:d]
+                       end = time()
+                   # append new values
+                   final_pi.append(aux_pi*new_P)
+                   final_mu.append(new_mu)
+                   final_sigma.append(new_sigma)
+               return GaussianMix(final_pi, final_mu, final_sigma)
+        else:
+            from rpy2.robjects.packages import importr
+            from rpy2.robjects import r
+            momtrunc = importr('MomTrunc')
+            # implementation using R package        
+            def ineq_func(comp):
+                mu = comp.gm.mu[0]
+                sigma = comp.gm.sigma[0]
+                final_pi = []
+                final_mu = []
+                final_sigma = []
+                for part in product(*[range(len(mean)) for mean in self.aux_means]):
+                    # for a given combination of components of the auxiliary variables, creates a new component extending comp
+                    aux_pi = 1
+                    aux_mean = list(deepcopy(mu))
+                    aux_sigma = []
+                    ineq_coeff = deepcopy(self.coeff)
+                    ineq_const = self.const
+                    for p,q in zip(range(len(self.aux_means)), part):
+                        aux_pi = aux_pi*self.aux_pis[p][q]
+                        aux_mean.append(self.aux_means[p][q])
+                        aux_sigma.append(self.aux_covs[p][q])
+                    aux_mean = np.array(aux_mean)
+                    aux_sigma = np.diag(aux_sigma)
+                    aux_cov = np.block([[sigma, np.zeros((len(sigma), len(aux_sigma)))], [np.zeros((len(aux_sigma), len(sigma))), aux_sigma]])
+                    # substitute deltas
+                    for i in range(len(aux_mean)):
+                        if aux_cov[i,i] < delta_tol and self.coeff[i] != 0.:
+                            ineq_const = ineq_const - self.coeff[i]*aux_mean[i]
+                            ineq_coeff[i] = 0.
+                    # if all variables were deltas return
+                    if np.all(np.array(ineq_coeff) == 0):
+                        if (self.type == '>' and ineq_const < 0) or (self.type == '>=' and ineq_const <= 0) or (self.type == '<' and ineq_const > 0) or (self.type == '<=' and ineq_const >= 0):
+                            new_P = 1.
+                        else:
+                            new_P = 0.
+                        new_mu = mu
+                        new_sigma = sigma
+                    # else compute truncated distribution
                     else:
-                        new_P = 0.
-                    new_mu = mu
-                    new_sigma = sigma
-                # else compute truncated distribution
-                else:
-                    # STEP 1: change variables
-                    norm = np.linalg.norm(ineq_coeff)
-                    ineq_coeff = np.array(ineq_coeff)/norm
-                    ineq_const = ineq_const/norm
-                    A = find_basis(ineq_coeff)
-                    transl_mu = A.dot(aux_mean)
-                    transl_sigma = A.dot(aux_cov).dot(A.transpose())
-                    # STEP 2: finds the indices of the components that needs to be transformed
-                    transl_alpha = np.zeros(len(transl_mu))
-                    transl_alpha[0] = 1
-                    indices = select_indices(transl_alpha, transl_sigma)
-                    # STEP 3: creates reduced vectors taking into account only the coordinates that need to be transformed
-                    red_transl_alpha = reduce_indices(transl_alpha, indices)
-                    red_transl_mu = reduce_indices(transl_mu, indices)
-                    red_transl_sigma = reduce_indices(transl_sigma, indices) 
-                    # STEP 4: creates the hyper-rectangle to integrate on
-                    a = np.ones(len(red_transl_alpha))*(-1.e10)
-                    b = np.ones(len(red_transl_alpha))*(1.e10)
-                    if self.type=='>' or self.type=='>=':
-                        a[0] = ineq_const
-                    if self.type=='<' or self.type=='<=':
-                        b[0] = ineq_const   
-                    # STEP 5: compute moments in the transformed coordinates
-                    new_P, new_red_transl_mu, new_red_transl_sigma = compute_moments(red_transl_mu, red_transl_sigma, a, b)
-                    # STEP 6: recreates extended vectors
-                    new_transl_mu = extend_indices(new_red_transl_mu, transl_mu, indices)
-                    new_transl_sigma = extend_indices(new_red_transl_sigma, transl_sigma, indices)
-                    # STEP 7: goes back to older coordinates
-                    d = len(comp.var_list)
-                    A_inv = np.linalg.inv(A)
-                    new_mu = A_inv.dot(new_transl_mu)[:d]
-                    new_sigma = A_inv.dot(new_transl_sigma).dot(A_inv.transpose())[:d,:d]
-                    end = time()
-                # append new values
-                final_pi.append(aux_pi*new_P)
-                final_mu.append(new_mu)
-                final_sigma.append(new_sigma)
-            return GaussianMix(final_pi, final_mu, final_sigma)
+                        # STEP 1: change variables
+                        norm = np.linalg.norm(ineq_coeff)
+                        ineq_coeff = np.array(ineq_coeff)/norm
+                        ineq_const = ineq_const/norm
+                        A = find_basis(ineq_coeff)
+                        transl_mu = A.dot(aux_mean)
+                        transl_sigma = A.dot(aux_cov).dot(A.transpose())
+                        # STEP 2: finds the indices of the components that needs to be transformed
+                        transl_alpha = np.zeros(len(transl_mu))
+                        transl_alpha[0] = 1
+                        indices = select_indices(transl_alpha, transl_sigma)
+                        # STEP 3: creates reduced vectors taking into account only the coordinates that need to be transformed
+                        red_transl_alpha = reduce_indices(transl_alpha, indices)
+                        red_transl_mu = reduce_indices(transl_mu, indices)
+                        red_transl_sigma = reduce_indices(transl_sigma, indices) 
+                        red_transl_sigma = make_psd(red_transl_sigma)
+                        # added for debugging
+                        #eig, M = np.linalg.eigh(red_transl_sigma)
+                        #print(eig > 0)
+                        # STEP 4: creates the hyper-rectangle to integrate on
+                        a = np.ones(len(red_transl_alpha))*-np.inf
+                        b = np.ones(len(red_transl_alpha))*np.inf
+                        if self.type=='>' or self.type=='>=':
+                            a[0] = ineq_const
+                        if self.type=='<' or self.type=='<=':
+                            b[0] = ineq_const   
+                        # STEP 5: compute moments in the transformed coordinates
+                        ra = r.c(*a.tolist())
+                        rb = r.c(*b.tolist())
+                        rmu = r.c(*red_transl_mu.tolist())
+                        rsigma = r.c(*red_transl_sigma.ravel().tolist())
+                        rsigma = r.matrix(rsigma, nrow = len(red_transl_mu))
+                        # added for debugging 
+                        #print('Is simmetric:', r.isSymmetric(rsigma))
+                        #print('Is positive definite:', r.eigen(rsigma, symmetric = True))
+                        new_P = r.pmvnormt(ra, rb, rmu, rsigma)
+                        new_P = new_P[0]
+                        #print(ra, rb, rmu, rsigma)
+                        new_pars = r.meanvarTMD(ra, rb, rmu, rsigma, dist='normal')
+                        new_red_transl_mu = np.array(new_pars[0])
+                        new_red_transl_sigma = np.array(new_pars[2])
+                        # STEP 6: recreates extended vectors
+                        new_transl_mu = extend_indices(new_red_transl_mu, transl_mu, indices)
+                        new_transl_sigma = extend_indices(new_red_transl_sigma, transl_sigma, indices)
+                        # STEP 7: goes back to older coordinates
+                        d = len(comp.var_list)
+                        A_inv = np.linalg.inv(A)
+                        new_mu = A_inv.dot(new_transl_mu)[:d]
+                        new_sigma = A_inv.dot(new_transl_sigma).dot(A_inv.transpose())[:d,:d]
+                    # append new values
+                    final_pi.append(aux_pi*new_P)
+                    final_mu.append(new_mu)
+                    final_sigma.append(new_sigma)
+                return GaussianMix(final_pi, final_mu, final_sigma)
             
         self.func = ineq_func
-
-# implementation using R package        
-#        def ineq_func(comp):
-#            mu = comp.gm.mu[0]
-#            sigma = comp.gm.sigma[0]
-#            final_pi = []
-#            final_mu = []
-#            final_sigma = []
-#            for part in product(*[range(len(mean)) for mean in self.aux_means]):
-#                # for a given combination of components of the auxiliary variables, creates a new component extending comp
-#                aux_pi = 1
-#                aux_mean = list(deepcopy(mu))
-#                aux_sigma = []
-#                ineq_coeff = deepcopy(self.coeff)
-#                ineq_const = self.const
-#                for p,q in zip(range(len(self.aux_means)), part):
-#                    aux_pi = aux_pi*self.aux_pis[p][q]
-#                    aux_mean.append(self.aux_means[p][q])
-#                    aux_sigma.append(self.aux_covs[p][q])
-#                aux_mean = np.array(aux_mean)
-#                aux_sigma = np.diag(aux_sigma)
-#                aux_cov = np.block([[sigma, np.zeros((len(sigma), len(aux_sigma)))], [np.zeros((len(aux_sigma), len(sigma))), aux_sigma]])
-#                # substitute deltas
-#                for i in range(len(aux_mean)):
-#                    if aux_cov[i,i] < delta_tol and self.coeff[i] != 0.:
-#                        ineq_const = ineq_const - self.coeff[i]*aux_mean[i]
-#                        ineq_coeff[i] = 0.
-#                # if all variables were deltas return
-#                if np.all(np.array(ineq_coeff) == 0):
-#                    if (self.type == '>' and ineq_const < 0) or (self.type == '>=' and ineq_const <= 0) or (self.type == '<' and ineq_const > 0) or (self.type == '<=' and ineq_const >= 0):
-#                        new_P = 1.
-#                    else:
-#                        new_P = 0.
-#                    new_mu = mu
-#                    new_sigma = sigma
-#                # else compute truncated distribution
-#                else:
-#                    # STEP 1: change variables
-#                    start = time()
-#                    norm = np.linalg.norm(ineq_coeff)
-#                    ineq_coeff = np.array(ineq_coeff)/norm
-#                    ineq_const = ineq_const/norm
-#                    A = find_basis(ineq_coeff)
-#                    transl_mu = A.dot(aux_mean)
-#                    transl_sigma = A.dot(aux_cov).dot(A.transpose())
-#                    # STEP 2: finds the indices of the components that needs to be transformed
-#                    transl_alpha = np.zeros(len(transl_mu))
-#                    transl_alpha[0] = 1
-#                    indices = select_indices(transl_alpha, transl_sigma)
-#                    # STEP 3: creates reduced vectors taking into account only the coordinates that need to be transformed
-#                    red_transl_alpha = reduce_indices(transl_alpha, indices)
-#                    red_transl_mu = reduce_indices(transl_mu, indices)
-#                    red_transl_sigma = reduce_indices(transl_sigma, indices) 
-#                    red_transl_sigma = make_psd(red_transl_sigma)
-#                    # STEP 4: creates the hyper-rectangle to integrate on
-#                    a = np.ones(len(red_transl_alpha))*(-1.e10)
-#                    b = np.ones(len(red_transl_alpha))*(1.e10)
-#                    if self.type=='>' or self.type=='>=':
-#                        a[0] = ineq_const
-#                    if self.type=='<' or self.type=='<=':
-#                        b[0] = ineq_const   
-#                    end = time()
-#                    timing.change_time = timing.change_time + end - start
-#                    # STEP 5: compute moments in the transformed coordinates
-#                    start = time()
-#                    ra = r.c(*a.tolist())
-#                    rb = r.c(*b.tolist())
-#                    rmu = r.c(*red_transl_mu.tolist())
-#                    rsigma = r.c(*red_transl_sigma.ravel().tolist())
-#                    rsigma = r.matrix(rsigma, nrow = len(red_transl_mu))
-#                    #print(ra,rb,rmu,rsigma)
-#                    new_P = r.pmvnormt(ra, rb, rmu, rsigma)
-#                    new_P = new_P[0]
-#                    new_pars = r.meanvarTMD(ra, rb, rmu, rsigma, dist='normal')
-#                    new_red_transl_mu = np.array(new_pars[0])
-#                    new_red_transl_sigma = np.array(new_pars[2])
-#                    end = time()
-#                    timing.mom_time = timing.mom_time + end - start
-#                    # STEP 6: recreates extended vectors
-#                    start = time()
-#                    new_transl_mu = extend_indices(new_red_transl_mu, transl_mu, indices)
-#                    new_transl_sigma = extend_indices(new_red_transl_sigma, transl_sigma, indices)
-#                    # STEP 7: goes back to older coordinates
-#                    d = len(comp.var_list)
-#                    A_inv = np.linalg.inv(A)
-#                    new_mu = A_inv.dot(new_transl_mu)[:d]
-#                    new_sigma = A_inv.dot(new_transl_sigma).dot(A_inv.transpose())[:d,:d]
-#                    end = time()
-#                    timing.change_time = timing.change_time + end - start
-#                # append new values
-#                final_pi.append(aux_pi*new_P)
-#                final_mu.append(new_mu)
-#                final_sigma.append(new_sigma)
-#            end_func = time()
-#            return GaussianMix(final_pi, final_mu, final_sigma)
-#        
-#        self.func = ineq_func
-        
         
         
     def enterMonom(self,ctx):
@@ -493,8 +492,8 @@ def extend_indices(red_vec, old_vec, indices):
     """
     puts red_vec in the indices of old_vec
     """
-    red_vec = np.array(red_vec, dtype=np.float32)
-    old_vec = np.array(old_vec, dtype=np.float32)
+    red_vec = np.array(red_vec)
+    old_vec = np.array(old_vec)
     if len(old_vec.shape) == 1:
         for red_i, i in enumerate(indices):
             old_vec[i] = red_vec[red_i]

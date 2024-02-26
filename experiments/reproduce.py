@@ -122,19 +122,19 @@ def runSOGA(program,tvars):
         out=subprocess.check_output(["python3","../src/SOGA.py","-f",program],text=True,
             timeout=exp_timeout)
         
-        rt_reg = r"Runtime:(\d+.\d+)"
-        c_reg= r"c:(\d+)"
-        d_reg= r"d:(\d+)"
+        rt_reg = r"\s*Runtime:\s*(\d+\.\d+)"
+        c_reg= r"\s*c:\s*(\d+)"
+        d_reg= r"\s*d:\s*(\d+)"
 
         value_reg=None
         value=""
         if(tvars is not None):
             value_reg=r"E\[%s\]: ([\+\-]?\d+.\d+)"%(re.escape(tvars[1].replace('"','').strip()))
-            value=getMatches(re.finditer(value_reg, str(out).strip(), re.IGNORECASE));
+            value=getMatches(re.finditer(value_reg, str(out).strip(),  re.MULTILINE | re.IGNORECASE));
          
-        rt=getMatches(re.finditer(rt_reg, str(out).strip(), re.IGNORECASE));
-        c=getMatches(re.finditer(c_reg, str(out).strip(), re.IGNORECASE));
-        d=getMatches(re.finditer(d_reg, str(out).strip(), re.IGNORECASE));
+        rt=getMatches(re.finditer(rt_reg, str(out).strip(), re.IGNORECASE|re.MULTILINE));
+        c=getMatches(re.finditer(c_reg, str(out).strip(), re.IGNORECASE|re.MULTILINE));
+        d=getMatches(re.finditer(d_reg, str(out).strip(), re.IGNORECASE|re.MULTILINE));
 
     except subprocess.CalledProcessError as meme:
         value="err"
@@ -298,55 +298,62 @@ def runSTAN(program,tvars,runs=1000,datFile=None):
                 to=True
         
 
-        if(Path("%s_out.csv"%(program.name.split(".")[0])).is_file()):
-            os.remove("%s_out.csv"%(program.name.split(".")[0]))
+        if(not to and not mem):
+            if(Path("%s_out.csv"%(program.name.split(".")[0])).is_file()):
+                os.remove("%s_out.csv"%(program.name.split(".")[0]))
 
-        subprocess.check_call(["../tools/cmdstan-2.34.0/bin/stansummary","%s.csv"%(program.name.split(".")[0]),"-c",
-                               "%s_out.csv"%(program.name.split(".")[0])],stdout=subprocess.DEVNULL,stderr=subprocess.STDOUT)
-        
-        data=pd.read_csv("%s_out.csv"%(program.name.split(".")[0]),comment="#")
-        value=data[data["name"]==tvars[1].strip().lower()]["Mean"].iloc[0]
-        stdDev=data[data["name"]==tvars[1].strip().lower()]["StdDev"].iloc[0]
-        ci=1.96*stdDev/np.sqrt(runs)
-        rhat=data[data["name"]==tvars[1].strip().lower()]["R_hat"].iloc[0]
-        os.remove("%s.csv"%(program.name.split(".")[0]))
-
-        e=abs(ci)*100/value
-        if(e<=0.1):
-            break
+            subprocess.check_call(["../tools/cmdstan-2.34.0/bin/stansummary","%s.csv"%(program.name.split(".")[0]),"-c",
+                                   "%s_out.csv"%(program.name.split(".")[0])],stdout=subprocess.DEVNULL,stderr=subprocess.STDOUT)
+            
+            data=pd.read_csv("%s_out.csv"%(program.name.split(".")[0]),comment="#")
+            e=[]
+            value=None
+            for v in tvars:
+                value=data[data["name"]==v.strip().lower()]["Mean"].iloc[0]
+                stdDev=data[data["name"]==v.strip().lower()]["StdDev"].iloc[0]
+                ci=1.96*stdDev/np.sqrt(runs)
+                rhat=data[data["name"]==v.strip().lower()]["R_hat"].iloc[0]
+                e+=[abs(ci*2)*100/value]
+                print(v,value)
+            
+            os.remove("%s.csv"%(program.name.split(".")[0]))
+            if(max(e)<=1):
+                print("converged")
+                break
+            else:
+                print(max(e),runs,rt)
+                runs=runs*2
         else:
-            #print(e)
-            runs=runs*2
+            print("Timeedout")
+            break
 
     return [rt,value,mem,to]
 
 def saveRes(programs=None,tools=None,outPath=None,tableres=None):
     resFile=open(str(PurePath(outPath)),"w+")
-    for p in programs:
-        fileline=""
-        p=Path(p)
-        pname=p.name.split(".")[0].replace("Prune","").lower()
-        expname=f"{pname}"
-        fileline+=expname
-        for t in tools:
-            k="%s_%s"%(t.lower(),expname)
-            if(t.lower()!="soga"):
-                if k in tableres:
-                    if(tableres[k][2]==True):
-                        fileline+=",mem"
-                    elif(tableres[k][3]==True):
-                        fileline+=",to"
-                    else:
-                        fileline+=f",{tableres[k][0]},{tableres[k][1]}"
+    fileline=""
+    for key,val in enumerate(tableres):
+        #assumo che la struttura del nome sia tool_model
+        exppname=val.replace("Prune","").lower()
+        fileline+=f"{exppname}"
+        if("soga" not in val.lower()):
+            if val in tableres:
+                if(tableres[val][2]==True):
+                    fileline+=",mem"
+                elif(tableres[val][3]==True):
+                    fileline+=",to"
                 else:
-                    fileline+=",--"
+                    fileline+=f",{tableres[val][0]},{tableres[val][1]}"
             else:
-                if k in tableres:
-                    fileline+=f",{tableres[k][0]},{tableres[k][1]},{tableres[k][2]},{tableres[k][3]}"
-                else:
-                    fileline+=",--"
-                
-        resFile.write(fileline+"\n")
+                fileline+=",--"
+        else:
+            if val in tableres:
+                fileline+=f",{tableres[val][0]},{tableres[val][1]},{tableres[val][2]},{tableres[val][3]}"
+            else:
+                fileline+=",--"
+        fileline+="\n"
+            
+    resFile.write(fileline)
 
     resFile.flush()
     resFile.close()
@@ -554,44 +561,16 @@ def sensPruningExp():
     tableres={}
     for p in programs:
         p=Path(p)
+        if("NormalMixtures" in p.name):
+            continue
         for idx,var in enumerate(tvars[:,0]):
             if(var.lower()==p.name.split(".")[0].lower()):
                 break
-
         pname=p.name.split(".")[0].replace("Prune","").lower()
         expname=f"soga_{pname}_{p.parent.name}"
         tableres[expname]=runSOGA(p,tvars=tvars[idx,:])
 
-    resFile=open(str(PurePath("./results/pruneSensitivity.csv")),"w+")
-    tools=["SOGA"]
-
-    for p in programs:
-        fileline=""
-        p=Path(p)
-        pname=p.name.split(".")[0].replace("Prune","").lower()
-        expname=f"{pname}_{p.parent.name}"
-        fileline+=expname
-        for t in tools:
-            k="%s_%s"%(t.lower(),expname)
-            if(t.lower()!="soga"):
-                if k in tableres:
-                    if(tableres[k][2]==True):
-                        fileline+=",mem"
-                    elif(tableres[k][3]==True):
-                        fileline+=",to"
-                    else:
-                        fileline+=",%s,%s"%(str(tableres[k][0]),str(tableres[k][1]))
-                else:
-                    fileline+=",--"
-            else:
-                if k in tableres:
-                    fileline+=",%s,%s"%(str(tableres[k][0]),str(tableres[k][1]))
-                else:
-                    fileline+=",--"
-                
-        resFile.write(fileline+"\n")
-    resFile.flush()
-    resFile.close()
+    saveRes(programs=programs,tools=["SOGA"],outPath="./results/pruneSensitivity.csv",tableres=tableres)
     
 def sensBranchesExp():
     logger.info("Computing sensisitvity to #baranches")
@@ -623,19 +602,20 @@ def sensVarExp():
     
 
     tableres={}
+    logger.info("####################running STAN#####################")
+    for p in stanPrograms:
+        p=Path(p)
+        nvar=int(re.findall(r"(\d+)\.",p.name)[0])
+        tvars=["alpha","beta"]
+        tvars+=[f"y{v+1}" for v in range(1,nvar+1)]        
+        dname=p.name.replace(f"{nvar}","").split(".")[0]
+        tableres["stan_%s"%(p.name.split(".")[0].lower())]=runSTAN(p,tvars,datFile=f"{p.parent}/{dname}.data.R")
     logger.info("####################running SOGA#####################")
     for p in programs:
         p=Path(p)
         nvar=int(re.findall(r"(\d+)\.",p.name)[0])
         tvars=["",f"y{nvar}"]
         tableres["soga_%s"%(p.name.split(".")[0].replace("Prune","").lower())]=runSOGA(p,tvars=tvars)
-    logger.info("####################running STAN#####################")
-    for p in stanPrograms:
-        p=Path(p)
-        nvar=int(re.findall(r"(\d+)\.",p.name)[0])
-        tvars=["",f"y{nvar+1}"]
-        dname=p.name.replace(f"{nvar}","").split(".")[0]
-        tableres["stan_%s"%(p.name.split(".")[0].lower())]=runSTAN(p,tvars,datFile=f"{p.parent}/{dname}.data.R")
 
     resFile=open(str(PurePath("./results/varSensitivity.csv")),"w+")
     tools=["SOGA","STAN"]
@@ -685,7 +665,7 @@ def sensCmpExp():
         pname=p.name.split(".")[0].replace("Prune","").lower()
         t=tvars[tvars.iloc[:,0]==pname.replace(re.findall(r"(\d+)",pname)[0],"")].iloc[0,1]
         tableres["soga_%s"%(pname)]=runSOGA(p,tvars=["",t])
-    logger.info("####################running PSI#####################")
+    #logger.info("####################running PSI#####################")
     # for p in psiPrograms:
     #     p=Path(p)
     #     pname=p.name.split(".")[0].replace("Prune","").lower()

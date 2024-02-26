@@ -78,15 +78,34 @@ class GaussianMix():
                 return 1.0
             else:
                 return 0.0
+            
+    def marg_comp_pdf(self, x, k, idx):
+        if np.sum(abs(self.sigma[k])) > delta_tol:
+            return norm.pdf(x, loc=self.mu[k][idx], scale=np.sqrt(self.sigma[k][idx,idx]))
+        else:
+            if np.all(x == self.mu[k][idx]):
+                return 1.0
+            else:
+                return 0.0
     
     def pdf(self, x):
         return sum([self.pi[k]*self.comp_pdf(x,k) for k in range(self.n_comp())])
     
+    def marg_pdf(self, x, idx):
+        return sum([self.pi[k]*self.marg_comp_pdf(x,k,idx) for k in range(self.n_comp())])
+    
     def comp_cdf(self, x, k):
         return mvnorm.cdf(x, mean=self.mu[k], cov=self.sigma[k], allow_singular=True)
+    
+    def marg_comp_cdf(self, x, k, idx):
+        if np.sum(abs(self.sigma[k])) > delta_tol:
+            return norm.cdf(x, loc=self.mu[k][idx], scale=np.sqrt(self.sigma[k][idx,idx]))
         
     def cdf(self, x):
         return sum([self.pi[k]*self.comp_cdf(x,k) for k in range(self.n_comp())])
+    
+    def marg_cdf(self, x, idx):
+        return sum([self.pi[k]*self.marg_comp_cdf(x,k,idx) for k in range(self.n_comp())])
       
     
     # Moments of mixtures
@@ -127,7 +146,8 @@ def make_psd(sigma):
     eig, M = np.linalg.eigh(new_sigma)
     add = 0
     delta_eig = 1e-8
-    while not np.all(eig >= 0):
+    while not np.all(eig > 5e-16):
+    #while True:
         add = add + delta_eig
         for i, e in enumerate(eig):
             if e < 0:
@@ -137,10 +157,11 @@ def make_psd(sigma):
         new_sigma = M.dot(np.diag(eig)).dot(M.transpose())
         #new_sigma = make_sym(new_sigma)
         eig, M = np.linalg.eigh(new_sigma)
-    rel_err = np.sum(abs(new_sigma-sigma))/np.sum(abs(sigma))
+    
+    rel_err = np.sum(abs(new_sigma-sigma))
     if rel_err > eig_tol:
-        print('Warning: eigenvalue substitution led to an error of: {}%'.format(rel_err))
-    mvnorm.cdf([0]*len(new_sigma), mean=[0]*len(new_sigma), cov=new_sigma, allow_singular=True)
+        print('Warning: eigenvalue substitution led to an error of: {}'.format(rel_err))
+    #mvnorm.cdf([0]*len(new_sigma), mean=[0]*len(new_sigma), cov=new_sigma, allow_singular=False)
     return new_sigma
 
 def make_sym(sigma):

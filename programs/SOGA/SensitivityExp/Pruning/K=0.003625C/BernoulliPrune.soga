@@ -10,5 +10,5 @@ for i in range(10) {
         y = 0; 
     } end if;
     observe(y == obs[i]);
-    prune(7);
+    prune(8);
 } end for;

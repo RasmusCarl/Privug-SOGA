@@ -145,7 +145,7 @@ def fitGmm(X=None,ncomp=2):
 	return weights,means,covariances
 
 
-def transform2gm(input_prog):
+def compile2SOGA(input_prog):
 	progr=open(input_prog,"r").read()
 	progr=compileExpRnd(input_prog=progr)
 	progr=compileUniform(input_prog=progr)

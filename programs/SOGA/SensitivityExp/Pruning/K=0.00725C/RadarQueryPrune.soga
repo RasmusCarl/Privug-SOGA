@@ -5,7 +5,7 @@ if b0 == 1 {
 } else {
     b1 = gm([0.2,0.8], [1,0], [0,0]);
 } end if;
-prune(15);
+prune(16);
 
 x0 = uniform([0,10], 2);
 x1 = gm([1.], [0.], [1.4142]) + x0;
@@ -20,7 +20,7 @@ if b0 == 1 {
     } else {
         o0 = x0 + y;
     } end if;
-    prune(15);
+    prune(16);
 } else {
     x = uniform([-5, 0], 2) + uniform([0,5], 2);
     observe(x <= 0);
@@ -31,9 +31,9 @@ if b0 == 1 {
     } else {
         o0 = y + x0;
     } end if;
-    prune(15);
+    prune(16);
 } end if;  
-prune(15);
+prune(16);
 
 if b1 == 1 {
     x = uniform([-5, 0], 2) + uniform([0,5], 2);
@@ -45,7 +45,7 @@ if b1 == 1 {
     } else {
         o1 = y + x1;
     } end if;
-    prune(15);
+    prune(16);
 } else {
     x = uniform([-5, 0], 2) + uniform([0,5], 2);
     observe(x <= 0);
@@ -56,13 +56,13 @@ if b1 == 1 {
     } else {
         o1 = y + x1;
     } end if;
-    prune(15);
+    prune(16);
 } end if;  
-prune(15);
+prune(16);
 
 observe(o0 == 5);
 observe(b0 == 1);
-prune(15);
+prune(16);
 
 
 

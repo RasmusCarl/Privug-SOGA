@@ -1,0 +1,11 @@
+gaussian = gauss(0, 8082331661.786416);
+
+array[10] income;
+
+for i in range(10) {
+    income[i] = uniform([10000, 50000],2);
+} end for;
+
+meandata = income[0] + income[1] + income[2] + income[3] + income[4] + income[5] + income[6] + income[7] + income[8] + income[9];
+meandata = 0.1*meandata;
+meandata = meandata + gaussian;

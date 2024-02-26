@@ -1,0 +1,19 @@
+array[10] income;
+array[10] mask;
+
+for i in range(10) {
+    income[i] = gauss(25000, 5000);
+} end for;
+
+for i in range(10) {
+    if income[i] < 20000 {
+        mask[i] = 0;
+    } else {
+        if income[i] < 30000 {
+            mask[i] = 1;
+        } else {
+            mask[i] = 2;
+        } end if;
+    } end if;
+} end for;
+
