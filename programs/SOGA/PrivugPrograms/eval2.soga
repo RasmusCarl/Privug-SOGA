@@ -1,0 +1,53 @@
+
+data obs = [472000,425000,448500];
+    	
+male21301 = gm([1.], [480000], [100]);
+male21302 = gm([1.], [490000], [100]);
+
+male21303 = gm([1.], [440000], [100]);
+male21304 = gm([1.], [420000], [100]);
+
+male21305 = gm([1.], [490000], [100]);
+male21306 = gm([1.], [490000], [100]);
+
+male21307 = gm([1.], [520000], [100]);
+male21308 = gm([1.], [490000], [100]);
+
+male21309 = gm([1.], [470000], [100]);
+male213010 = gm([1.], [400000], [100]);
+
+
+male2130total = male21301 + male21302 + male21303 + male21304 + male21305 + male21306 + male21307 + male21308 + male21309 + male213010;
+    
+male2130average = 0.1*male2130total;
+    
+observe(male2130average==obs[0]);
+    
+female21301 = gm([1.],[450000], [100]);
+female21302 = gm([1.],[400000], [100]);
+
+female21303 = gm([1.],[410000], [100]);
+female21304 = gm([1.],[430000], [100]);
+
+female21305 = gm([1.],[440000], [100]);
+female21306 = gm([1.],[400000], [100]);
+    
+female21307 = gm([1.],[440000], [100]);
+female21308 = gm([1.],[300000], [100]);
+    
+female21309 = gm([1.],[350000], [100]);
+female213010 = gm([1.],[400000],[100]);
+  
+female2130total = female21301 + female21302 + female21303 + female21304 + female21305 + female21306 + female21307 + female21308+ female21309 + female213010;
+
+female2130average = 0.1*female2130total;
+
+observe(female2130average==obs[1]);
+    
+total2130   =  male21301 + male21302 + male21303 + male21304 + male21305 + male21306 + male21307+ male21308 + male21309 + male213010 + female21301+ female21302+ female21303 + female21304 + female21305 + female21306 + female21307+ female21308 + female21309 + female213010;
+    
+average2130 = 0.05*total2130;
+    
+observe(average2130==obs[2]);
+
+
