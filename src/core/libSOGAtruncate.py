@@ -1,11 +1,12 @@
 # Contains the functions for computing the resulting distribution when a truncation occurs in conditional or observe instructions according to the following dependencies.
 
-from libSOGAshared import *
-from TRUNCLexer import *
-from TRUNCParser import *
-from TRUNCListener import *
-import timing
-import pathos.multiprocessing as mp
+from src.core.libSOGAshared import *
+#from TRUNCLexer import *
+#from TRUNCParser import *
+#from TRUNCListener import *
+from src.parsers.SOGA import *
+import src.core.timing
+#import pathos.multiprocessing as mp
 
 isR=None
 

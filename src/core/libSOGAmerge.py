@@ -8,7 +8,7 @@
 #            |- merge_comp
 
 
-from libSOGAshared import *
+from src.core.libSOGAshared import *
 
 
 def merge(list_dist):

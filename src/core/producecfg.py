@@ -28,9 +28,10 @@
 # - make array accessible also with expression such as i-1, i+1, ecc.
 
 from antlr4 import *
-from SOGALexer import *
-from SOGAParser import *
-from SOGAListener import *
+#from SOGALexer import *
+#from SOGAParser import *
+#from SOGAListener import *
+from src.parsers.SOGA import *
 
 class CFGnode:
     

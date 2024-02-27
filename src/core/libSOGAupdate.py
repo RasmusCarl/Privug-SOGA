@@ -5,11 +5,11 @@
 #    |- sym_expr
 #    |- update_gaussian
 
-from libSOGAshared import *
-from ASGMTListener import *
-from ASGMTParser import * 
-from ASGMTLexer import *
-
+from src.core.libSOGAshared import *
+#from ASGMTListener import *
+#from ASGMTParser import * 
+#from ASGMTLexer import *
+from src.parsers.SOGA import *
 class AsgmtRule(ASGMTListener):
     
     def __init__(self, var_list, data):

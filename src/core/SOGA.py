@@ -9,9 +9,9 @@ import argparse
 from multiprocessing import Process,Queue
 import sys
 
-from producecfg import *
-from libSOGA import *
-from sogaPreprocessor import compile2SOGA
+from src.core.producecfg import *
+from src.core.libSOGA import *
+from src.core.sogaPreprocessor import compile2SOGA
 
 from time import time
 

@@ -11,10 +11,10 @@
 # - improve dependencies on libraries (all auxiliary libraries import libSOGAshared, maybe there is a more efficient way to do this?)
 # - libSOGAmerge: add other pruning  
 
-from libSOGAtruncate import *
-from libSOGAupdate import *
-from libSOGAmerge import *
-import timing
+from src.core.libSOGAtruncate import *
+from src.core.libSOGAupdate import *
+from src.core.libSOGAmerge import *
+import src.core.timing as timing
 
 def start_SOGA(cfg, pruning=None, Kmax=None, parallel=False,useR=False):
     """ Invokes SOGA on the root of the CFG object cfg, initializing current_distribution to a Dirac delta centered in zero.
