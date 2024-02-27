@@ -1,15 +1,17 @@
+data obsmask = [0, 1, 2, 0, 1, 0, 2, 1, 1, 0];
+
 array[10] income;
 array[10] mask;
 
 for i in range(10) {
-    income[i] = gauss(25000, 5000);
+    income[i] = gauss(450000, 50000);
 } end for;
 
 for i in range(10) {
-    if income[i] < 20000 {
+    if income[i] < 400000 {
         mask[i] = 0;
     } else {
-        if income[i] < 30000 {
+        if income[i] < 500000 {
             mask[i] = 1;
         } else {
             mask[i] = 2;
@@ -17,3 +19,6 @@ for i in range(10) {
     } end if;
 } end for;
 
+for i in range(10) {
+    observe(mask[i] == obsmask[i]);
+} end for;

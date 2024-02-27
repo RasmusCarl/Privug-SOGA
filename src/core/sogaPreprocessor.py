@@ -83,6 +83,30 @@ def compileBeta(input_prog):
 
 	return input_prog
 
+def compileLaplace(input_prog):
+    global computedDist
+    #laplace(loc, scale, ncmp)
+    matches,oText=extractMatch(input_prog,regex = r"laplace\((.*?)\)")
+    for idx,m in enumerate(matches):
+        m_k=m.replace(" ","")
+        if(f"laplace({m_k})" not in computedDist):
+            loc, scale, ncmp = m.split(",")
+            X=np.random.laplace(float(loc), float(scale), nsamples).reshape(-1, 1)
+            weights,means,covariances=fitGmm(X,int(ncmp))
+            input_prog=input_prog.replace(oText[idx],
+             "gm([%s],[%s],[%s])"%(",".join(map(lambda x:"%.10f"%(x),weights)),",".join(map(lambda x:"%.10f"%(x),means)),
+             ",".join(map(lambda x:"%.10f"%(x),(np.sqrt(covariances))))))
+            computedDist[f"laplace({m_k})"]=[weights,means,covariances]
+        else:
+            #print("all done")
+            w=computedDist[f"laplace({m_k})"][0]
+            mu=computedDist[f"laplace({m_k})"][1]
+            cov=computedDist[f"laplace({m_k})"][2]
+            input_prog=input_prog.replace(oText[idx],
+                 "gm([%s],[%s],[%s])"%(",".join(map(lambda x:"%.10f"%(x),w)),",".join(map(lambda x:"%.10f"%(x),mu)),
+                 ",".join(map(lambda x:"%.10f"%(x),(np.sqrt(cov))))))
+    return input_prog
+
 def compileExpRnd(input_prog):
 	global computedDist
 	#exprnd(scale,ncmp)
@@ -146,19 +170,20 @@ def fitGmm(X=None,ncomp=2):
 
 
 def compile2SOGA(input_prog):
-	progr=open(input_prog,"r").read()
-	progr=compileExpRnd(input_prog=progr)
-	progr=compileUniform(input_prog=progr)
-	progr=compileBeta(input_prog=progr)
+    progr=open(input_prog,"r").read()
+    progr=compileExpRnd(input_prog=progr)
+    progr=compileUniform(input_prog=progr)
+    progr=compileBeta(input_prog=progr)
+    progr=compileLaplace(input_prog=progr)
 
-	progr=compileGauss(input_prog=progr)
-	progr=compileBernoulli(input_prog=progr)
+    progr=compileGauss(input_prog=progr)
+    progr=compileBernoulli(input_prog=progr)
 
-	temp_file=tempfile.NamedTemporaryFile(mode='w',delete=False)
-	temp_file.write(progr)
-	temp_file.close()
+    temp_file=tempfile.NamedTemporaryFile(mode='w',delete=False)
+    temp_file.write(progr)
+    temp_file.close()
 
-	return temp_file.name
+    return temp_file.name
 
 if __name__ == '__main__':
 
