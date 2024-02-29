@@ -29,6 +29,7 @@
 
 from antlr4 import *
 from src.parsers.SOGA import *
+from src.parsers.Privug import *
 
 class CFGnode:
     
@@ -352,9 +353,9 @@ def produce_cfg(filename):
     """ Parses filename using ANTLR4. Returns a CFG object. """
     #input_file =  open('../script/'+ filename + '.txt', 'r').read()
     input_file =  open(filename, 'r').read()
-    lexer = SOGALexer(InputStream(input_file))
+    lexer = PrivugSOGALexer(InputStream(input_file))
     stream = CommonTokenStream(lexer)
-    parser = SOGAParser(stream)
+    parser = PrivugSOGAParser(stream)
     tree = parser.progr()
     cfg = CFG()
     walker = ParseTreeWalker()

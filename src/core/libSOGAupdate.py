@@ -10,6 +10,8 @@ from src.core.libSOGAshared import *
 #from ASGMTParser import * 
 #from ASGMTLexer import *
 from src.parsers.SOGA import *
+from src.parsers.Privug import *
+
 class AsgmtRule(ASGMTListener):
     
     def __init__(self, var_list, data):
@@ -172,9 +174,9 @@ class AsgmtRule(ASGMTListener):
     
 def asgmt_parse(var_list, expr, data):
     """ Parses expr using ANTLR4. Returns a function """
-    lexer = ASGMTLexer(InputStream(expr))
+    lexer = PrivugASGMTLexer(InputStream(expr))
     stream = CommonTokenStream(lexer)
-    parser = ASGMTParser(stream)
+    parser = PrivugASGMTParser(stream)
     tree = parser.assignment()
     asgmt_rule = AsgmtRule(var_list, data)
     walker = ParseTreeWalker()
