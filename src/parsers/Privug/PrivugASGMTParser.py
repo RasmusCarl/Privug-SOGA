@@ -453,6 +453,21 @@ class PrivugASGMTParser ( Parser ):
         def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
             super().__init__(parent, invokingState)
             self.parser = parser
+            
+        def is_data(self, data):
+            if self.IDV(0).getText() in data.keys():
+                return True
+            else:
+                return False
+                
+                            
+        def getValue(self, data):
+            data_name = self.IDV(0).getText()
+            if not self.NUM() is None:
+                data_idx = int(self.NUM().getText())
+            elif not self.IDV(1) is None:
+                data_idx = data[self.IDV(1).getText()][0]
+            return data[data_name][data_idx]
 
         def IDV(self, i:int=None):
             if i is None:
