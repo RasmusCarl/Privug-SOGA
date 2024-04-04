@@ -48,11 +48,9 @@ for i in range(7):
     totalmale2130 = totalmale2130 + male2130[i];
 end for;
 
-
-noiseall = gauss(0,48158478113.32177);
-noiseallmale = gauss(0,48443255611.67916);
-noisemale2130 = gauss(0,598149458948.4482);
-
+noiseall = gauss(0,10835657.575497398);
+noiseallmale = gauss(0,10899732.512627812);
+noisemale2130 = gauss(0,134583628.26340085);
 
 totalall = 0.02127659574*totalall;
 totalmale = 0.02702702702*totalmale;
@@ -61,7 +59,6 @@ totalmale2130 = 0.14285714285*totalmale2130;
 totalall = totalall + noiseall;
 totalmale = totalmale + noiseallmale;
 totalmale2130 = totalmale2130 + noisemale2130;
-
 
 observe(totalall==518697.27659574465);
 observe(totalmale==544514.027027027);

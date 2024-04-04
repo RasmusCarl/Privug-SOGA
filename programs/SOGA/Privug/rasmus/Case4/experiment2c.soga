@@ -45,7 +45,7 @@ for i in range(7):
 end for;
 
 noiseall = gauss(0,48158478113.32177);
-noseallmale = gauss(0,48443255611.67916);
+noiseallmale = gauss(0,48443255611.67916);
 
 totalall = 0.02127659574*totalall;
 totalmale = 0.02702702702*totalmale;
