@@ -1,7 +1,10 @@
 
+
 x = gauss(1, 1);
-y = gauss(1, 1);
+array[1300] y;
 
 for i in range(1300):
-    x = x + y;
+    y[i] = gauss(1,1);
+    x = x + y[i];
 end for;
+

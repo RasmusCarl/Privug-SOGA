@@ -21,12 +21,20 @@ for i in range(10):
 end for;
 
 totalmale = 0;
+totalemale2130 = 0;
 
 for i in range(10):
     totalmale = totalmale + male2130[i] + male3140[i] + male4150[i] + male5160[i];
 end for;
 
+for i in range(10):
+    totalemale2130 = totalemale2130 + male2130[i];
+end for;
+
+
+totalemale2130 = 0.1*totalemale2130;
 totalmale = 0.025*totalmale;
 
 observe(totalmale==487700.8292682209);
+observe(totalemale2130==373802.3170728835);
 observe(male2130[1] == 340015.72083672);

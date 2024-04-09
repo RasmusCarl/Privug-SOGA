@@ -1,0 +1,15 @@
+data observed = [1];
+
+bias = 0.5;
+value = bern(0.5);
+
+coin1 = bern(0.5);
+coin2 = bern(0.5);
+
+if coin1 == 1: 
+    output = value; 
+else:
+    output = coin2;
+end if;
+
+observe(output == observed[0]);

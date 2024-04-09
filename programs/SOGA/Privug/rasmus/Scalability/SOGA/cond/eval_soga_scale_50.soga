@@ -1,10 +1,10 @@
 
-
 x = gauss(1, 1);
-array[1100] y;
+array[50] y;
 
-for i in range(1100):
+for i in range(50):
     y[i] = gauss(1,1);
     x = x + y[i];
 end for;
 
+observe(x==1);
