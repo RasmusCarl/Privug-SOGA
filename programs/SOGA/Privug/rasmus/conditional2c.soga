@@ -1,0 +1,13 @@
+income = gauss(110000, 5000);
+
+if income > 120000:
+    level = 2;
+else:
+    if income > 110000:
+        level = 1;
+    else:
+        level = 0;
+    end if;
+end if;
+
+observe(level == 1);

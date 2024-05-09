@@ -1,0 +1,9 @@
+income = gauss(125000, 5000);
+
+if income > 120000:
+    high = 1;
+else:
+    high = 0;
+end if;
+
+/*observe(high == 1);*/
