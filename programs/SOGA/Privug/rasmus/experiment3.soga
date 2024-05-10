@@ -36,6 +36,9 @@ end for;
 
 totalmale2130 = 0.1*totalmale2130;
 
+
 totalmale2130 + gauus(0, 10000)
+
+
 
 observe(totalmale2130==584043.4);

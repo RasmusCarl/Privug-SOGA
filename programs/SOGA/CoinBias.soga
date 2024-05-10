@@ -1,6 +1,6 @@
 data toss = [1, 1, 0, 1, 0];
 
-bias = gm([0.72, 0.28], [0.21, 0.47], [0.1, 0.11]); 
+bias = beta([2,5],2); 
 
 for i in range(5) {
     if uniform([0,1],2) - bias < 0 {

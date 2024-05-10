@@ -1,10 +1,8 @@
 
-
 x = gauss(1, 1);
-array[800] y;
+y = gauss(1, 1);
 
-for i in range(800):
-    y[i] = gauss(1,1);
-    x = x + y[i];
-end for;
+for i in range(800) {
+    x = x + y;
+} end for;
 
